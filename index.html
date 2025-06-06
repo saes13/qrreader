@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Lector de QR y Voz</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        #reader {
+            width: 300px;
+            margin: auto;
+        }
+        #output {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h2 style="text-align:center;">Escanea QR y escucha con voz</h2>
+    <div id="reader"></div>
+    <div id="output"></div>
+
+    <script>
+        function speak(text) {
+            const synth = window.speechSynthesis;
+            const utterance = new SpeechSynthesisUtterance(text);
+            // Seleccionar voz dominicana si está disponible
+            const voices = synth.getVoices();
+            utterance.lang = 'es-DO'; // Español República Dominicana
+            utterance.voice = voices.find(voice => voice.lang === 'es-DO') 
+                             || voices.find(voice => voice.lang.includes('es'));
+
+            synth.speak(utterance);
+        }
+
+        function onScanSuccess(decodedText, decodedResult) {
+            document.getElementById('output').innerText = decodedText;
+            speak(decodedText);
+            html5QrcodeScanner.clear();
+        }
+
+        let html5QrcodeScanner = new Html5QrcodeScanner(
+            "reader", { fps: 10, qrbox: 250 });
+        html5QrcodeScanner.render(onScanSuccess);
+    </script>
+</body>
+</html>
