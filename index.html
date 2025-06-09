@@ -2,13 +2,12 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Lector QR con Voz Multilingüe</title>
+    <title>Lector QR Multilenguaje por Palabra</title>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
             text-align: center;
-            background-color: #f9f9f9;
             padding: 20px;
         }
         #reader {
@@ -24,53 +23,68 @@
 </head>
 <body>
 
-    <h2>📷 Escanea el QR y escucha el nombre</h2>
+    <h2>📷 Escanea el QR y escucha el nombre por fragmento</h2>
     <div id="reader"></div>
     <div id="output"></div>
 
     <script>
-    function speak(text, langCode) {
-        const synth = window.speechSynthesis;
-        const utterance = new SpeechSynthesisUtterance(text);
+        function speakChunks(chunks) {
+            const synth = window.speechSynthesis;
 
-        // Obtener voces después de un pequeño delay para asegurar que estén cargadas
-        const loadVoices = () => {
-            const voices = synth.getVoices();
-            utterance.lang = langCode;
-            utterance.voice = voices.find(v => v.lang.startsWith(langCode)) ||
-                              voices.find(v => v.lang.includes(langCode)) ||
-                              voices.find(v => v.lang.includes('es'));
-            synth.speak(utterance);
-        };
+            let index = 0;
 
-        // Asegura que las voces estén cargadas antes de hablar
-        if (synth.getVoices().length === 0) {
-            window.speechSynthesis.onvoiceschanged = loadVoices;
-        } else {
-            loadVoices();
+            const speakNext = () => {
+                if (index >= chunks.length) return;
+
+                const { lang, text } = chunks[index];
+                const utterance = new SpeechSynthesisUtterance(text);
+
+                const voices = synth.getVoices();
+                utterance.lang = lang;
+                utterance.voice = voices.find(v => v.lang.startsWith(lang)) ||
+                                  voices.find(v => v.lang.includes(lang)) ||
+                                  voices.find(v => v.lang.includes('es'));
+
+                utterance.onend = () => {
+                    index++;
+                    speakNext(); // Leer el siguiente fragmento
+                };
+
+                synth.speak(utterance);
+            };
+
+            // Esperar a que las voces estén listas
+            if (synth.getVoices().length === 0) {
+                synth.onvoiceschanged = () => speakNext();
+            } else {
+                speakNext();
+            }
         }
-    }
 
-    function onScanSuccess(decodedText) {
-        // Ejemplo esperado: "es|Aminta Dolores Tejada Cruz"
-        const parts = decodedText.split('|');
+        function onScanSuccess(decodedText) {
+            const parts = decodedText.trim().split(/\s+/); // Dividir por espacio
+            const chunks = [];
 
-        if (parts.length >= 2) {
-            const langCode = parts[0].trim().toLowerCase();
-            const nameToRead = parts.slice(1).join('|').trim();
+            for (const part of parts) {
+                const [lang, ...rest] = part.split('|');
+                const text = rest.join('|').trim();
 
-            document.getElementById('output').innerText = nameToRead;
-            speak(nameToRead, langCode);
+                if (lang && text) {
+                    chunks.push({ lang: lang.toLowerCase(), text });
+                }
+            }
+
+            const combinedText = chunks.map(c => c.text).join(' ');
+            document.getElementById('output').innerText = combinedText;
+
+            speakChunks(chunks);
+
             html5QrcodeScanner.clear();
-        } else {
-            document.getElementById('output').innerText = "Formato incorrecto en QR.";
         }
-    }
 
-    let html5QrcodeScanner = new Html5QrcodeScanner(
-        "reader", { fps: 10, qrbox: 250 });
-    html5QrcodeScanner.render(onScanSuccess);
-</script>
+        let html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+        html5QrcodeScanner.render(onScanSuccess);
+    </script>
 
 </body>
 </html>
